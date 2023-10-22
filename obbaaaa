@@ -1,0 +1,508 @@
+import imc.game.logic.ComputerPlayer;
+import imc.game.logic.HumanPlayer;
+import imc.game.logic.Jude;
+import imc.game.logic.PaperRockScissorGame;
+import imc.game.model.Player;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
+public class Main {
+    private static final BufferedReader READER = new BufferedReader(new InputStreamReader(System.in));
+    private static final Player HUMAN_PLAYER = new HumanPlayer(READER);
+    private static final Player COMPUTER_PLAYER  = new ComputerPlayer();
+
+    private static final Jude GAME_JUDGE  = new Jude();
+
+    public static void main(String[] args) throws IOException {
+        int numberOfRounds;
+
+        System.out.println("Enter a positive number of rounds:");
+        numberOfRounds = Integer.parseInt(READER.readLine());
+        PaperRockScissorGame game = new PaperRockScissorGame(HUMAN_PLAYER, COMPUTER_PLAYER, GAME_JUDGE, numberOfRounds);
+
+        game.play();
+    }
+}
+
+
+
+package imc.game.logic;
+
+import imc.game.model.Move;
+import imc.game.model.Player;
+
+import java.util.Random;
+
+public class ComputerPlayer implements Player {
+    private static final Random RANDOM = new Random();
+
+    @Override
+    public Move chooseMove() {
+        var computerMove  = Move.values()[RANDOM.nextInt(Move.values().length)];
+        System.out.println("Computer move is " + computerMove);
+        return computerMove;
+    }
+}
+
+
+package imc.game.logic;
+
+import imc.game.model.Move;
+import imc.game.model.Player;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.util.Optional;
+
+
+public class HumanPlayer implements Player {
+    private final BufferedReader bufferedReader;
+
+    public HumanPlayer(final BufferedReader reader) {
+        this.bufferedReader = reader;
+    }
+
+    /**
+     * Takes an input from user via terminal.
+     * In case of a wrong input, or I/O exception raised via bufferedReader, it keeps asking for a correct input.
+     * @return human {@link Move}
+     */
+    @Override
+    public Move chooseMove() {
+        Optional<Move> move = Optional.empty();
+        do {
+            try {
+                System.out.println("Enter your move (rock, paper, or scissors): ");
+                String input = bufferedReader.readLine().toUpperCase();
+                move = Optional.of(Move.valueOf(input));
+            } catch (IllegalArgumentException exception) {
+                System.err.println("Move entered is invalid. please re-enter a valid one.");
+            } catch (IOException e) {
+                System.err.println("Exception happened while taking a player move : " + e.getMessage());
+                System.out.println("please re-enter your move.");
+            }
+
+        } while (move.isEmpty());
+
+        return move.get();
+    }
+
+}
+
+
+package imc.game.logic;
+
+import imc.game.model.GameResult;
+import imc.game.model.Move;
+
+import java.util.List;
+import java.util.function.BiPredicate;
+
+public class Jude {
+    private int humanScore;
+    private int computerScore;
+
+    private static final List<BiPredicate<Move, Move>> WINNING_RULES = List.of(
+        (a, b) -> a.equals(Move.SCISSORS) && b.equals(Move.PAPER),
+        (a, b) -> a.equals(Move.ROCK) && b.equals(Move.SCISSORS),
+        (a, b) -> a.equals(Move.PAPER) && b.equals(Move.ROCK)
+    );
+
+    public GameResult determineWinner(Move humanMove, Move computerMove) {
+        if (humanMove == computerMove) {
+            return GameResult.TIE;
+        } else {
+
+            if (WINNING_RULES.stream().anyMatch(e -> e.test(humanMove, computerMove))) {
+                humanScore++;
+                return GameResult.HUMAN;
+            }
+
+            computerScore++;
+            return GameResult.COMPUTER;
+
+        }
+    }
+
+    public int getComputerScore() {
+        return computerScore;
+    }
+
+    public int getHumanScore() {
+        return humanScore;
+    }
+}
+
+
+
+
+package imc.game.logic;
+
+import imc.game.model.GameEngine;
+import imc.game.model.Move;
+import imc.game.model.Player;
+
+public class PaperRockScissorGame implements GameEngine {
+    private final Player humanPlayer;
+    private final Player computerPlayer;
+    private  final Jude gameJudge;
+    private final int numberOfRounds;
+
+    public PaperRockScissorGame(final Player humanPlayer, final Player computerPlayer, final Jude gameJudge, final int numberOfRounds) {
+        this.humanPlayer = humanPlayer;
+        this.computerPlayer = computerPlayer;
+        this.numberOfRounds = numberOfRounds;
+        this.gameJudge = gameJudge;
+    }
+
+    @Override
+    public void play() {
+
+        for (int roundsNum = 1; roundsNum <= numberOfRounds; roundsNum++) {
+            Move humanMove, computerMove;
+
+            humanMove = humanPlayer.chooseMove();
+            computerMove = computerPlayer.chooseMove();
+
+
+            switch (gameJudge.determineWinner(humanMove, computerMove)) {
+                case TIE -> System.out.println("It's a tie");
+                case HUMAN -> System.out.println("Human wins");
+                default -> System.out.println("Computer wins");
+            }
+
+        }
+
+        System.out.println("Final score - Human: " + gameJudge.getHumanScore() + ", Computer:  " + gameJudge.getComputerScore());
+    }
+}
+
+
+package imc.game.model;
+
+/**
+ * Interface for game engine
+ */
+public interface GameEngine {
+    /**
+     * This function starts the game. Implementation should take input from user and present result.
+     */
+    void play();
+}
+
+
+
+package imc.game.model;
+
+public enum GameResult {
+    HUMAN,
+    COMPUTER,
+    TIE
+}
+
+
+package imc.game.model;
+
+public enum Move {
+    ROCK, PAPER, SCISSORS;
+}
+
+
+package imc.game.model;
+
+/**
+ * Interface for any game player
+ */
+public interface Player {
+
+    /**
+     * @return It returns a {@link Move} that was taken by player
+     */
+    Move chooseMove();
+}
+
+package imc.game.logic;
+
+import imc.game.model.Move;
+import org.junit.Test;
+
+public class ComputerPlayerTest {
+
+    @Test
+    public void testChooseMove(){
+        ComputerPlayer computerPlayer = new ComputerPlayer();
+        var move = computerPlayer.chooseMove();
+
+        assert move == Move.PAPER || move == Move.ROCK || move == Move.SCISSORS;
+    }
+
+}
+
+
+
+package imc.game.logic;
+
+import imc.game.model.Move;
+import org.junit.Before;
+import org.junit.Test;
+import org.mockito.Mock;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+public class HumanPlayerTest {
+
+    @Mock
+    private BufferedReader bufferedReader;
+
+    @Before
+    public void setup() {
+        bufferedReader = mock(BufferedReader.class);
+    }
+
+
+    @Test
+    public void testChooseMoveReturnsValidMove() throws IOException {
+        HumanPlayer humanPlayer = new HumanPlayer(bufferedReader);
+        when(bufferedReader.readLine()).thenReturn("rock");
+        var move = humanPlayer.chooseMove();
+        assert move == Move.ROCK;
+
+        when(bufferedReader.readLine()).thenReturn("paper");
+        move = humanPlayer.chooseMove();
+        assert move == Move.PAPER;
+
+        when(bufferedReader.readLine()).thenReturn("SCISSORS");
+        move = humanPlayer.chooseMove();
+        assert move == Move.SCISSORS;
+    }
+
+    @Test
+    public void testWhenUserEntersInvalidInputThenItAsksForAnotherInput() throws IOException {
+        HumanPlayer humanPlayer = new HumanPlayer(bufferedReader);
+        when(bufferedReader.readLine())
+            .thenReturn("blah blah")
+            .thenReturn("paper");
+
+        var move = humanPlayer.chooseMove();
+
+        assert move == Move.PAPER;
+        verify(bufferedReader, times(2)).readLine();
+    }
+
+    @Test
+    public void testWhenIOExceptionThenItAsksForAnotherInput() throws IOException {
+        HumanPlayer humanPlayer = new HumanPlayer(bufferedReader);
+        when(bufferedReader.readLine())
+            .thenThrow(new IOException())
+            .thenReturn("paper");
+
+        var move = humanPlayer.chooseMove();
+
+        assert move == Move.PAPER;
+        verify(bufferedReader, times(2)).readLine();
+    }
+}
+
+
+package imc.game.logic;
+
+import imc.game.model.GameResult;
+import imc.game.model.Move;
+import org.junit.Test;
+
+public class JudgeTest {
+
+    @Test
+    public void tesHumanPaperMove() {
+        Jude jude = new Jude();
+        var humanMove = Move.PAPER;
+
+        var computerMove = Move.PAPER;
+        assert GameResult.TIE == jude.determineWinner(humanMove, computerMove);
+
+
+        computerMove = Move.SCISSORS;
+        assert GameResult.COMPUTER == jude.determineWinner(humanMove, computerMove);
+
+        computerMove = Move.ROCK;
+        assert GameResult.HUMAN == jude.determineWinner(humanMove, computerMove);
+    }
+
+    @Test
+    public void testHumanScissorsMove() {
+        Jude jude = new Jude();
+        var humanMove = Move.SCISSORS;
+
+        var computerMove = Move.SCISSORS;
+        assert GameResult.TIE == jude.determineWinner(humanMove, computerMove);
+
+
+        computerMove = Move.PAPER;
+        assert GameResult.HUMAN == jude.determineWinner(humanMove, computerMove);
+
+        computerMove = Move.ROCK;
+        assert GameResult.COMPUTER == jude.determineWinner(humanMove, computerMove);
+    }
+
+    @Test
+    public void testHumanRockMove() {
+        Jude jude = new Jude();
+        var humanMove = Move.ROCK;
+
+        var computerMove = Move.ROCK;
+        assert GameResult.TIE == jude.determineWinner(humanMove, computerMove);
+
+
+        computerMove = Move.SCISSORS;
+        assert GameResult.HUMAN == jude.determineWinner(humanMove, computerMove);
+
+        computerMove = Move.PAPER;
+        assert GameResult.COMPUTER == jude.determineWinner(humanMove, computerMove);
+    }
+
+    @Test
+    public void testGetHumanScore() {
+        Jude jude = new Jude();
+        var humanMove = Move.ROCK;
+
+        var computerMove = Move.ROCK;
+        jude.determineWinner(humanMove, computerMove);
+        assert 0 == jude.getHumanScore();
+
+        computerMove = Move.SCISSORS;
+        jude.determineWinner(humanMove, computerMove);
+        assert 1 == jude.getHumanScore();
+
+        computerMove = Move.SCISSORS;
+        jude.determineWinner(humanMove, computerMove);
+        assert 2 == jude.getHumanScore();
+    }
+
+
+    @Test
+    public void testGetComputerScore() {
+        Jude jude = new Jude();
+        var humanMove = Move.SCISSORS;
+        var computerMove = Move.SCISSORS;
+        jude.determineWinner(humanMove, computerMove);
+        assert 0 == jude.getComputerScore();
+
+        computerMove = Move.ROCK;
+        jude.determineWinner(humanMove, computerMove);
+        assert 1 == jude.getComputerScore();
+
+        computerMove = Move.ROCK;
+        jude.determineWinner(humanMove, computerMove);
+        assert 2 == jude.getComputerScore();
+    }
+}
+
+
+package imc.game.logic;
+
+import imc.game.logic.Jude;
+import imc.game.logic.PaperRockScissorGame;
+import imc.game.model.GameResult;
+import imc.game.model.Move;
+import imc.game.model.Player;
+import org.junit.Before;
+import org.junit.Test;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+public class PaperRockScissorGameTest {
+    private Player humanPlayer;
+    private Player computerPlayer;
+    private Jude jude;
+
+    @Before
+    public void setup() {
+        humanPlayer = mock(Player.class);
+        computerPlayer = mock(Player.class);
+        jude = mock(Jude.class);
+    }
+
+    @Test
+    public void testGameLastsForNumberOfRounds() {
+        int numberOfRound = 2;
+        PaperRockScissorGame game = new PaperRockScissorGame(humanPlayer, computerPlayer, jude, numberOfRound);
+        when(humanPlayer.chooseMove()).thenReturn(Move.PAPER);
+        when(computerPlayer.chooseMove()).thenReturn(Move.SCISSORS);
+        when(jude.determineWinner(any(), any())).thenReturn(GameResult.HUMAN);
+
+        game.play();
+
+        verify(humanPlayer, times(numberOfRound)).chooseMove();
+        verify(computerPlayer, times(numberOfRound)).chooseMove();
+        verify(jude, times(numberOfRound)).determineWinner(any(), any());
+    }
+}
+
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.example</groupId>
+    <artifactId>paper-rock-scissor-game</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <compiler.plugin.version>3.11.0</compiler.plugin.version>
+        <mockito.version>2.28.2</mockito.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+
+</project>
+
+
+## Overview ##
+
+Hope you find my solution acceptable. 
+
+I made my solution simple, readable and testable (using Junit and Mockito library)
+
+I added interfaces for different classes as it is a good OOP practice to implement against interfaces.
+
+I used single responsibility principle to make sure every class is doing one thing and one thing only.
+
+## Things that can be improved ##
+1. replace system.out with a logging framework 
+2. using assertJ library instead of plain assert
+3. package path can be moved from lo
+
+
+## Design decisions ##
+1. If user entered a wrong move, the terminal will keep asking till it gets a correct answer 
